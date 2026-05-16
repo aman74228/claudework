@@ -11,9 +11,8 @@ const DEFAULT_STATE = {
   fromUnit:    null,
   toUnit:      null,
   inputValue:  '1',
-  darkMode:    true,
-  favorites:   [],     // [{catId, fromUnit, toUnit}]
-  history:     [],     // [{catId, fromUnit, toUnit, inputValue, result, timestamp}]
+  favorites:   [],
+  history:     [],
   searchQuery: '',
   multiExpand: true,
   voiceActive: false,
@@ -32,7 +31,6 @@ function setState(patch, skipRender = false) {
 function persist() {
   try {
     localStorage.setItem('unitx_state', JSON.stringify({
-      darkMode:   S.darkMode,
       favorites:  S.favorites,
       history:    S.history.slice(0, 80),
       multiExpand: S.multiExpand,
@@ -162,7 +160,7 @@ function catBg(cat) {
 
 function render() {
   const app = document.getElementById('app');
-  app.className = S.darkMode ? 'dark' : 'light';
+  app.className = 'light';
 
   renderNav();
 
@@ -480,7 +478,9 @@ function renderConverter() {
           </div>
           ${cat.id === 'currency' ? `
             <div style="font-size:11px;color:var(--text3);margin-top:8px">
-              ℹ️ Rates as of ${new Date().toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})} (demo data — connect API for live rates)
+              ℹ️ ${CURRENCY_LAST_UPDATED
+                ? 'Rates updated ' + timeAgo(CURRENCY_LAST_UPDATED.getTime())
+                : 'Loading live rates…'}
             </div>` : ''}
         </div>
       </div>
@@ -608,20 +608,6 @@ function renderSettings() {
       <div class="page-header"><div class="heading-lg">Settings</div></div>
 
       <div class="settings-section" style="margin-top:8px">
-        <div class="settings-title">Appearance</div>
-        <div class="settings-card">
-          <div class="setting-row" data-action="toggle-dark">
-            <div class="setting-icon" style="background:var(--bg3)">🌙</div>
-            <div class="setting-info">
-              <div class="setting-label">Dark Mode</div>
-              <div class="setting-sub">${S.darkMode?'Currently dark':'Currently light'}</div>
-            </div>
-            <div class="toggle ${S.darkMode?'on':''}" id="dark-toggle"></div>
-          </div>
-        </div>
-      </div>
-
-      <div class="settings-section">
         <div class="settings-title">Converter</div>
         <div class="settings-card">
           <div class="setting-row" data-action="toggle-multi-default">
@@ -672,7 +658,9 @@ function renderSettings() {
             <div class="setting-icon" style="background:var(--bg3)">📡</div>
             <div class="setting-info">
               <div class="setting-label">Currency Rates</div>
-              <div class="setting-sub">Demo data — add API key for live rates</div>
+              <div class="setting-sub">${CURRENCY_LAST_UPDATED
+                ? 'Live — updated ' + CURRENCY_LAST_UPDATED.toLocaleString('en-US',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'})
+                : 'Fetching live rates…'}</div>
             </div>
             <div class="setting-right">›</div>
           </div>
@@ -811,10 +799,6 @@ function handleClick(e) {
       }
       break;
 
-    case 'toggle-dark':
-      setState({ darkMode: !S.darkMode });
-      break;
-
     case 'toggle-multi-default':
       setState({ multiExpand: !S.multiExpand });
       break;
@@ -934,8 +918,31 @@ window.addEventListener('beforeinstallprompt', e => {
   window._pwaPrompt = e;
 });
 
+/* ── Live Currency Rates ────────────────────────────────────── */
+
+let CURRENCY_LAST_UPDATED = null;
+
+async function fetchLiveCurrencyRates() {
+  try {
+    const res = await fetch('https://open.er-api.com/v6/latest/USD');
+    if (!res.ok) throw new Error('fetch failed');
+    const data = await res.json();
+    if (data.result !== 'success') throw new Error('bad response');
+    Object.keys(CURRENCY_RATES).forEach(code => {
+      if (data.rates[code] !== undefined) {
+        CURRENCY_RATES[code].rate = data.rates[code];
+      }
+    });
+    CURRENCY_LAST_UPDATED = new Date(data.time_last_update_utc);
+    render();
+  } catch(e) {
+    console.warn('Live currency fetch failed, using fallback rates', e);
+  }
+}
+
 /* ── Init ───────────────────────────────────────────────────── */
 
 hydrate();
 initVoice();
 render();
+fetchLiveCurrencyRates();
