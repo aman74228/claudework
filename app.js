@@ -197,10 +197,7 @@ function renderNav() {
 
 /* ── HOME ───────────────────────────────────────────────────── */
 
-function renderHome() {
-  const hour = new Date().getHours();
-  const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
-
+function renderHomeMain() {
   const topCats = ['length','weight','temperature','currency','data','speed'];
   const recentItems = S.history.slice(0, 5).map(h => {
     const cat = CATEGORIES.find(c => c.id === h.catId);
@@ -211,9 +208,7 @@ function renderHome() {
     return `
       <div class="recent-item" data-action="open-hist" data-cat="${h.catId}"
            data-from="${h.fromUnit}" data-to="${h.toUnit}" data-val="${h.inputValue}">
-        <div class="recent-icon" style="${catBg(cat)}">
-          ${cat.icon}
-        </div>
+        <div class="recent-icon" style="${catBg(cat)}">${cat.icon}</div>
         <div class="recent-info">
           <div class="recent-conversion">${h.inputValue} ${fu?.symbol||h.fromUnit} = ${resultF} ${tu?.symbol||h.toUnit}</div>
           <div class="recent-value">${cat.name}</div>
@@ -233,6 +228,49 @@ function renderHome() {
   }).join('');
 
   return `
+    <div class="section-label">Quick Access</div>
+    <div class="quick-scroll">
+      ${topCats.map(id => {
+        const cat = CATEGORIES.find(c => c.id === id);
+        return cat ? `
+          <div class="quick-card" style="${catBg(cat)}" data-action="open-cat" data-cat="${cat.id}">
+            <div class="q-icon">${cat.icon}</div>
+            <div class="q-name">${cat.name}</div>
+          </div>` : '';
+      }).join('')}
+    </div>
+
+    ${S.history.length ? `
+      <div class="section-label">Recent Conversions</div>
+      ${recentItems}
+    ` : `
+      <div class="section-label">Get Started</div>
+      <div style="padding:20px 20px 8px; color:var(--text2); font-size:14px; line-height:1.6">
+        Tap any category above or browse all categories in <strong>Explore</strong> to start converting.
+      </div>
+    `}
+
+    <div class="section-label">Live Currency Rates <span style="font-size:10px;color:var(--text3);text-transform:none;letter-spacing:0">(vs USD)</span></div>
+    <div class="currency-strip">${currencyPreview}</div>
+
+    <div class="section-label">All Categories</div>
+    <div class="categories-grid" style="padding:0 16px 8px">
+      ${CATEGORIES.map(cat => `
+        <div class="category-card" style="${catBg(cat)}" data-action="open-cat" data-cat="${cat.id}">
+          <div class="cat-glow"></div>
+          <span class="cat-icon">${cat.icon}</span>
+          <div class="cat-name">${cat.name}</div>
+          <div class="cat-desc">${cat.description}</div>
+          <div class="cat-count">${cat.units.length} units</div>
+        </div>`).join('')}
+    </div>`;
+}
+
+function renderHome() {
+  const hour = new Date().getHours();
+  const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
+
+  return `
     <div class="screen">
       <div class="home-greeting">
         <div class="heading-xl gradient-text">UnitX</div>
@@ -248,44 +286,7 @@ function renderHome() {
         </div>
       </div>
 
-      ${S.searchQuery ? renderSearchResults(S.searchQuery) : `
-        <div class="section-label">Quick Access</div>
-        <div class="quick-scroll">
-          ${topCats.map(id => {
-            const cat = CATEGORIES.find(c => c.id === id);
-            return cat ? `
-              <div class="quick-card" style="${catBg(cat)}" data-action="open-cat" data-cat="${cat.id}">
-                <div class="q-icon">${cat.icon}</div>
-                <div class="q-name">${cat.name}</div>
-              </div>` : '';
-          }).join('')}
-        </div>
-
-        ${S.history.length ? `
-          <div class="section-label">Recent Conversions</div>
-          ${recentItems}
-        ` : `
-          <div class="section-label">Get Started</div>
-          <div style="padding:20px 20px 8px; color:var(--text2); font-size:14px; line-height:1.6">
-            Tap any category above or browse all categories in <strong>Explore</strong> to start converting.
-          </div>
-        `}
-
-        <div class="section-label">Live Currency Rates <span style="font-size:10px;color:var(--text3);text-transform:none;letter-spacing:0">(vs USD)</span></div>
-        <div class="currency-strip">${currencyPreview}</div>
-
-        <div class="section-label">All Categories</div>
-        <div class="categories-grid" style="padding:0 16px 8px">
-          ${CATEGORIES.map(cat => `
-            <div class="category-card" style="${catBg(cat)}" data-action="open-cat" data-cat="${cat.id}">
-              <div class="cat-glow"></div>
-              <span class="cat-icon">${cat.icon}</span>
-              <div class="cat-name">${cat.name}</div>
-              <div class="cat-desc">${cat.description}</div>
-              <div class="cat-count">${cat.units.length} units</div>
-            </div>`).join('')}
-        </div>
-      `}
+      <div id="home-body">${S.searchQuery ? renderSearchResults(S.searchQuery) : renderHomeMain()}</div>
     </div>`;
 }
 
@@ -342,7 +343,7 @@ function renderSearchResults(q) {
 
 /* ── CATEGORIES ─────────────────────────────────────────────── */
 
-function renderCategories() {
+function renderCatGrid() {
   const filtered = S.searchQuery
     ? CATEGORIES.filter(c =>
         c.name.toLowerCase().includes(S.searchQuery.toLowerCase()) ||
@@ -350,7 +351,19 @@ function renderCategories() {
         c.units.some(u => u.name.toLowerCase().includes(S.searchQuery.toLowerCase()))
       )
     : CATEGORIES;
+  return `<div class="categories-grid">
+    ${filtered.map(cat => `
+      <div class="category-card" style="${catBg(cat)}" data-action="open-cat" data-cat="${cat.id}">
+        <div class="cat-glow"></div>
+        <span class="cat-icon">${cat.icon}</span>
+        <div class="cat-name">${cat.name}</div>
+        <div class="cat-desc">${cat.description}</div>
+        <div class="cat-count">${cat.units.length} units</div>
+      </div>`).join('')}
+  </div>`;
+}
 
+function renderCategories() {
   return `
     <div class="screen">
       <div class="page-header">
@@ -367,16 +380,7 @@ function renderCategories() {
           ${S.searchQuery ? `<button class="search-clear" data-action="clear-search">✕</button>` : ''}
         </div>
       </div>
-      <div class="categories-grid">
-        ${filtered.map(cat => `
-          <div class="category-card" style="${catBg(cat)}" data-action="open-cat" data-cat="${cat.id}">
-            <div class="cat-glow"></div>
-            <span class="cat-icon">${cat.icon}</span>
-            <div class="cat-name">${cat.name}</div>
-            <div class="cat-desc">${cat.description}</div>
-            <div class="cat-count">${cat.units.length} units</div>
-          </div>`).join('')}
-      </div>
+      <div id="cat-body">${renderCatGrid()}</div>
     </div>`;
 }
 
@@ -823,7 +827,30 @@ function handleChange(e) {
 function handleInput(e) {
   const el = e.target;
   if (el.id === 'global-search' || el.id === 'cat-search') {
-    setState({ searchQuery: el.value });
+    S.searchQuery = el.value;
+    persist();
+
+    // Toggle the clear button without touching the input
+    const bar = el.closest('.search-bar');
+    let clearBtn = bar.querySelector('.search-clear');
+    if (S.searchQuery && !clearBtn) {
+      clearBtn = document.createElement('button');
+      clearBtn.className = 'search-clear';
+      clearBtn.dataset.action = 'clear-search';
+      clearBtn.textContent = '✕';
+      bar.appendChild(clearBtn);
+    } else if (!S.searchQuery && clearBtn) {
+      clearBtn.remove();
+    }
+
+    // Update only the results area — never destroy the focused input
+    if (el.id === 'global-search') {
+      const body = document.getElementById('home-body');
+      if (body) body.innerHTML = S.searchQuery ? renderSearchResults(S.searchQuery) : renderHomeMain();
+    } else {
+      const body = document.getElementById('cat-body');
+      if (body) body.innerHTML = renderCatGrid();
+    }
   }
 }
 
