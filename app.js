@@ -973,3 +973,9 @@ hydrate();
 initVoice();
 render();
 fetchLiveCurrencyRates();
+
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/claudework/sw.js');
+  });
+}
