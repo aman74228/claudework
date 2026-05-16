@@ -1,25 +1,39 @@
 {
   "name": "UnitX — Unit Converter",
   "short_name": "UnitX",
-  "description": "The most powerful all-in-one unit converter",
+  "description": "All-in-one unit converter with 16+ categories: length, weight, currency, temperature, data, speed, energy, and more. Live currency rates included.",
   "start_url": "/claudework/",
   "scope": "/claudework/",
   "display": "standalone",
   "orientation": "portrait",
   "background_color": "#ffffff",
   "theme_color": "#6c63ff",
+  "lang": "en",
+  "categories": ["utilities", "productivity"],
   "icons": [
     {
       "src": "icons/icon-192.png",
       "sizes": "192x192",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
     },
     {
       "src": "icons/icon-512.png",
       "sizes": "512x512",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
+    },
+    {
+      "src": "icons/icon-maskable-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "icons/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
     }
   ]
 }

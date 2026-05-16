@@ -20,6 +20,10 @@ const DEFAULT_STATE = {
 
 let S = { ...DEFAULT_STATE };
 
+function esc(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
 function setState(patch, skipRender = false) {
   S = { ...S, ...patch };
   persist();
@@ -43,6 +47,29 @@ function hydrate() {
     const saved = JSON.parse(localStorage.getItem('unitx_state') || '{}');
     S = { ...S, ...saved };
   } catch(e) {}
+}
+
+/* ── Confirm Modal ──────────────────────────────────────────── */
+
+function showConfirm(message, onConfirm) {
+  const overlay = document.getElementById('modal-overlay');
+  overlay.innerHTML = `
+    <div class="modal-sheet confirm-sheet">
+      <div class="modal-handle"></div>
+      <div class="confirm-body">
+        <div class="confirm-msg">${message}</div>
+        <div class="confirm-btns">
+          <button class="confirm-btn confirm-cancel" data-confirm="cancel">Cancel</button>
+          <button class="confirm-btn confirm-ok" data-confirm="ok">Confirm</button>
+        </div>
+      </div>
+    </div>`;
+  overlay.classList.remove('hidden');
+  overlay.onclick = e => {
+    const action = e.target.closest('[data-confirm]')?.dataset.confirm;
+    if (action === 'ok') { overlay.classList.add('hidden'); onConfirm(); }
+    else if (action === 'cancel' || e.target === overlay) overlay.classList.add('hidden');
+  };
 }
 
 /* ── Toast ──────────────────────────────────────────────────── */
@@ -207,7 +234,7 @@ function renderHomeMain() {
     const resultF = formatForDisplay(parseFloat(h.result));
     return `
       <div class="recent-item" data-action="open-hist" data-cat="${h.catId}"
-           data-from="${h.fromUnit}" data-to="${h.toUnit}" data-val="${h.inputValue}">
+           data-from="${h.fromUnit}" data-to="${h.toUnit}" data-val="${esc(h.inputValue)}">
         <div class="recent-icon" style="${catBg(cat)}">${cat.icon}</div>
         <div class="recent-info">
           <div class="recent-conversion">${h.inputValue} ${fu?.symbol||h.fromUnit} = ${resultF} ${tu?.symbol||h.toUnit}</div>
@@ -429,8 +456,8 @@ function renderConverter() {
   return `
     <div class="screen converter-screen">
       <div class="converter-header">
-        <button class="back-btn" data-action="back">‹</button>
-        <div class="conv-header-icon" style="${catBg(cat)};width:40px;height:40px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0">
+        <button class="back-btn" data-action="back" aria-label="Go back">‹</button>
+        <div class="conv-header-icon" style="${catBg(cat)};width:40px;height:40px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0" aria-hidden="true">
           ${cat.icon}
         </div>
         <div class="conv-header-title">
@@ -438,7 +465,8 @@ function renderConverter() {
           <div class="conv-header-sub">${cat.description}</div>
         </div>
         <button class="fav-btn ${favActive?'active':''}" data-action="toggle-fav"
-                title="${favActive?'Remove from favorites':'Add to favorites'}">
+                aria-label="${favActive?'Remove from favorites':'Add to favorites'}"
+                aria-pressed="${favActive}">
           ${favActive ? '⭐' : '☆'}
         </button>
       </div>
@@ -453,17 +481,19 @@ function renderConverter() {
             </select>
             ${voiceSupported ? `
               <button class="voice-btn ${S.voiceActive?'listening':''}" data-action="voice"
-                      title="Voice input">🎤</button>` : ''}
+                      aria-label="${S.voiceActive?'Stop voice input':'Start voice input'}"
+                      aria-pressed="${S.voiceActive}">🎤</button>` : ''}
           </div>
-          <input class="unit-input" id="from-input" type="number"
-                 placeholder="0" value="${S.inputValue}"
-                 inputmode="decimal" autocomplete="off"/>
+          <input class="unit-input" id="from-input" type="text"
+                 placeholder="0" value="${esc(S.inputValue)}"
+                 inputmode="decimal" autocomplete="off" spellcheck="false"
+                 aria-label="Enter value to convert"/>
         </div>
 
         <!-- SWAP -->
         <div class="swap-row">
           <div class="divider-line"></div>
-          <button class="swap-btn" id="swap-btn" data-action="swap" title="Swap units">⇅</button>
+          <button class="swap-btn" id="swap-btn" data-action="swap" aria-label="Swap units">⇅</button>
           <div class="divider-line"></div>
         </div>
 
@@ -477,7 +507,7 @@ function renderConverter() {
             <button class="copy-btn show" data-action="copy-result"
                     data-val="${resultStr}" title="Copy result">Copy</button>
           </div>
-          <div class="unit-result" id="result-display">
+          <div class="unit-result" id="result-display" aria-live="polite" aria-label="Conversion result">
             ${result === null || isNaN(result) ? '<span style="color:var(--text3)">—</span>' : resultStr}
           </div>
           ${cat.id === 'currency' ? `
@@ -578,7 +608,7 @@ function renderHistory() {
         return `
           <div class="hist-item" data-action="open-hist"
                data-cat="${h.catId}" data-from="${h.fromUnit}"
-               data-to="${h.toUnit}" data-val="${h.inputValue}">
+               data-to="${h.toUnit}" data-val="${esc(h.inputValue)}">
             <div class="hist-icon" style="${catBg(cat)}">${cat.icon}</div>
             <div class="hist-info">
               <div class="hist-expr">
@@ -647,6 +677,21 @@ function renderSettings() {
         </div>
       </div>
 
+      ${window._pwaPrompt ? `
+      <div class="settings-section">
+        <div class="settings-title">App</div>
+        <div class="settings-card">
+          <div class="setting-row" data-action="install-app">
+            <div class="setting-icon" style="background:var(--accent-soft)">📲</div>
+            <div class="setting-info">
+              <div class="setting-label">Install UnitX</div>
+              <div class="setting-sub">Add to home screen for instant access</div>
+            </div>
+            <div class="setting-right">›</div>
+          </div>
+        </div>
+      </div>` : ''}
+
       <div class="settings-section">
         <div class="settings-title">About</div>
         <div class="settings-card">
@@ -656,7 +701,7 @@ function renderSettings() {
               <div class="setting-label">UnitX</div>
               <div class="setting-sub">All-in-One Unit Converter</div>
             </div>
-            <div class="setting-right" style="font-size:12px;color:var(--text3)">v1.0</div>
+            <div class="setting-right" style="font-size:12px;color:var(--text3)">v1.1</div>
           </div>
           <div class="setting-row">
             <div class="setting-icon" style="background:var(--bg3)">📡</div>
@@ -675,6 +720,14 @@ function renderSettings() {
               <div class="setting-sub">${(window.SpeechRecognition||window.webkitSpeechRecognition)?'Available in your browser':'Not available in this browser'}</div>
             </div>
           </div>
+          <div class="setting-row" data-action="privacy-policy">
+            <div class="setting-icon" style="background:var(--bg3)">🔒</div>
+            <div class="setting-info">
+              <div class="setting-label">Privacy Policy</div>
+              <div class="setting-sub">No data collected — all stored locally</div>
+            </div>
+            <div class="setting-right">›</div>
+          </div>
         </div>
       </div>
 
@@ -688,12 +741,11 @@ function renderSettings() {
 /* ── Event attachment ───────────────────────────────────────── */
 
 function attachEvents() {
-  /* Delegated click handler */
+  /* Delegated click handler — assignment overwrites on each render, no accumulation */
   const mc = document.getElementById('main-content');
-  mc.onclick = null;
-  mc.addEventListener('click', handleClick);
-  mc.addEventListener('change', handleChange);
-  mc.addEventListener('input',  handleInput);
+  mc.onclick  = handleClick;
+  mc.onchange = handleChange;
+  mc.oninput  = handleInput;
 
   /* Nav clicks */
   document.getElementById('bottom-nav').onclick = e => {
@@ -727,7 +779,7 @@ function handleClick(e) {
 
   switch(action) {
     case 'back':
-      navigate(S.prevScreen === 'converter' ? 'home' : S.prevScreen || 'home');
+      navigate(S.prevScreen || 'home');
       break;
 
     case 'open-cat':
@@ -790,17 +842,17 @@ function handleClick(e) {
     }
 
     case 'clear-history':
-      if (confirm('Clear all conversion history?')) {
+      showConfirm('Clear all conversion history?', () => {
         setState({ history: [] });
         showToast('History cleared', '🗑️');
-      }
+      });
       break;
 
     case 'clear-favorites':
-      if (confirm('Remove all favorites?')) {
+      showConfirm('Remove all favorites?', () => {
         setState({ favorites: [] });
         showToast('Favorites cleared', '🗑️');
-      }
+      });
       break;
 
     case 'toggle-multi-default':
@@ -809,6 +861,17 @@ function handleClick(e) {
 
     case 'voice':
       toggleVoice();
+      break;
+
+    case 'install-app':
+      if (window._pwaPrompt) {
+        window._pwaPrompt.prompt();
+        window._pwaPrompt.userChoice.then(() => { window._pwaPrompt = null; render(); });
+      }
+      break;
+
+    case 'privacy-policy':
+      window.open('https://aman74228.github.io/claudework/privacy.html', '_blank');
       break;
   }
 }
