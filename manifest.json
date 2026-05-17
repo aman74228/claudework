@@ -2,6 +2,7 @@
   "name": "UnitX — Unit Converter",
   "short_name": "UnitX",
   "description": "All-in-one unit converter with 16+ categories: length, weight, currency, temperature, data, speed, energy, and more. Live currency rates included.",
+  "id": "/claudework/",
   "start_url": "/claudework/",
   "scope": "/claudework/",
   "display": "standalone",
