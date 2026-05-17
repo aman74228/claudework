@@ -21,84 +21,96 @@ jobs:
       - name: Install Bubblewrap
         run: npm install -g @bubblewrap/cli
 
-      - name: Generate signing keystore
+      - name: Configure Bubblewrap (use pre-installed Android SDK + Java)
         run: |
-          keytool -genkey -v \
-            -keystore android.keystore \
-            -alias unitx \
-            -keyalg RSA \
-            -keysize 2048 \
-            -validity 10000 \
-            -storepass UnitX@2024 \
-            -keypass UnitX@2024 \
-            -dname "CN=Aman Patel, OU=Dev, O=UnitX, L=Unknown, ST=Unknown, C=IN"
-
-      - name: Write twa-manifest.json
-        run: |
-          cat > twa-manifest.json << 'EOF'
-          {
-            "packageId": "com.amanpatel.unitx",
-            "host": "aman74228.github.io",
-            "name": "UnitX — Unit Converter",
-            "launcherName": "UnitX",
-            "display": "standalone",
-            "orientation": "portrait",
-            "themeColor": "#6c63ff",
-            "navigationColor": "#6c63ff",
-            "navigationColorDark": "#6c63ff",
-            "navigationDividerColor": "#6c63ff",
-            "navigationDividerColorDark": "#6c63ff",
-            "backgroundColor": "#ffffff",
-            "startUrl": "/claudework/",
-            "iconUrl": "https://aman74228.github.io/claudework/icons/icon-512.png",
-            "maskableIconUrl": "https://aman74228.github.io/claudework/icons/icon-maskable-512.png",
-            "appVersionCode": 1,
-            "appVersionName": "1.1",
-            "signingKey": {
-              "path": "./android.keystore",
-              "alias": "unitx"
-            },
-            "splashScreenFadeOutDuration": 300,
-            "enableNotifications": false,
-            "shortcuts": [],
-            "generatorApp": "bubblewrap-cli",
-            "webManifestUrl": "https://aman74228.github.io/claudework/manifest.json",
-            "fallbackType": "customtabs",
-            "features": {},
-            "alphaDependencies": { "enabled": false },
-            "enableSiteSettingsShortcut": true,
-            "isChromeOSOnly": false,
-            "isMetaQuest": false,
-            "fullScopeUrl": "https://aman74228.github.io/claudework/",
-            "minSdkVersion": 21,
-            "targetSdkVersion": 34,
-            "locationDelegation": { "enabled": false },
-            "playBilling": { "enabled": false }
-          }
-          EOF
-
-      - name: Configure Bubblewrap
-        run: |
+          JAVA_PATH=$(dirname $(dirname $(readlink -f $(which java))))
+          SDK_PATH="${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}"
           mkdir -p ~/.bubblewrap
-          echo '{"jdkPath":"/opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/17.0.15-6/x64","androidSdkPath":"'$ANDROID_SDK_ROOT'"}' > ~/.bubblewrap/config.json
+          printf '{"jdkPath":"%s","androidSdkPath":"%s"}' "$JAVA_PATH" "$SDK_PATH" > ~/.bubblewrap/config.json
+          echo "Config written:"
+          cat ~/.bubblewrap/config.json
+          echo ""
+          echo "Java version:"
+          java -version
+          echo ""
+          echo "Android SDK contents:"
+          ls "$SDK_PATH" || echo "SDK path not found, using ANDROID_HOME=$ANDROID_HOME"
 
-      - name: Build APK with Bubblewrap
-        env:
-          STORE_PASSWORD: UnitX@2024
-          KEY_PASSWORD: UnitX@2024
+      - name: Bubblewrap Init (pipe all interactive answers)
         run: |
-          bubblewrap build --skipPwaValidation \
-            --manifest twa-manifest.json \
-            --signingKeyPath ./android.keystore \
-            --signingKeyAlias unitx \
-            --signingKeyPassword UnitX@2024 \
-            --signingStorePassword UnitX@2024
+          mkdir -p unitx-build && cd unitx-build
 
-      - name: Upload APK
+          # Answers in order for: bubblewrap init --manifest <url>
+          # 1. Domain (auto from manifest)
+          # 2. App name (auto)
+          # 3. Short name (auto)
+          # 4. Application ID
+          # 5. Version code
+          # 6. Version name
+          # 7. Orientation (auto)
+          # 8. Theme color (auto)
+          # 9. Nav bar color (auto)
+          # 10. Nav divider color (auto)
+          # 11. Background color (auto)
+          # 12. Enable notifications
+          # 13. Location delegation
+          # 14. Play Billing
+          # 15. Additional trusted origins (empty)
+          # 16. Site settings shortcut
+          # 17. Signing key (new)
+          # 18. Key path
+          # 19. Key password
+          # 20. Key alias
+          # 21. Alias password
+          # 22. First name
+          # 23. Last name
+          # 24. Organization (empty)
+          # 25. Org unit (empty)
+          # 26. Country code
+          printf '%s\n' \
+            '' \
+            '' \
+            '' \
+            'com.amanpatel.unitx' \
+            '1' \
+            '1.1' \
+            '' \
+            '' \
+            '' \
+            '' \
+            '' \
+            'n' \
+            'n' \
+            'n' \
+            '' \
+            'y' \
+            'new' \
+            './android.keystore' \
+            'UnitX@2024' \
+            'unitx' \
+            'UnitX@2024' \
+            'Aman' \
+            'Patel' \
+            '' \
+            '' \
+            'IN' \
+          | bubblewrap init --manifest https://aman74228.github.io/claudework/manifest.json
+
+          echo "--- Project files generated ---"
+          ls -la
+
+      - name: Build APK
+        run: |
+          cd unitx-build
+          bubblewrap build --skipPwaValidation
+          echo "--- Searching for APK ---"
+          find . -name "*.apk" -type f
+
+      - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
           name: UnitX-APK
           path: |
-            app-release-signed.apk
-            app/build/outputs/apk/**/*.apk
+            unitx-build/app-release-signed.apk
+            unitx-build/app/build/outputs/apk/**/*.apk
           if-no-files-found: warn
